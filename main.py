@@ -6,38 +6,46 @@
 #
 # WARNING! All changes made in this file will be lost!
 
+# GUI imports
 from PyQt5 import QtCore, QtGui, QtWidgets
-import numpy as np
-from keras.preprocessing import image
-from keras.models import Sequential
-from keras.layers import Dense
-from keras.models import model_from_json
-from keras.models import Sequential
-#initialize nn
-from keras.layers import Conv2D
-from keras.layers import MaxPooling2D
-from keras.layers import Flatten
-#convert pooling features space to large feature vector for fully
-#connected layer 
-from keras.preprocessing.image import ImageDataGenerator
-from keras.layers import BatchNormalization
-from keras.layers import Dropout
 
-import os
+# Data processing imports
+import numpy as np
 import cv2
-####################
-from imutils import contours
+import os
+import csv
+import imutils
+import mahotas as mt
+
+# Deep learning imports
+try:
+    import tensorflow as tf
+    from tensorflow.keras.preprocessing import image
+    from tensorflow.keras.models import Sequential, model_from_json
+    from tensorflow.keras.layers import (
+        Dense, 
+        Conv2D, 
+        MaxPooling2D, 
+        Flatten, 
+        BatchNormalization,
+        Dropout
+    )
+    from tensorflow.keras.preprocessing.image import ImageDataGenerator
+except ImportError as e:
+    print(f"Error importing TensorFlow: {e}")
+    print("Please ensure TensorFlow is properly installed")
+    raise
+
+# Machine learning imports
 from sklearn.cluster import KMeans
 from sklearn.cluster import spectral_clustering
 from sklearn.neural_network import MLPClassifier
-import csv
+
+# Scientific computing
 import scipy
 import scipy.io as sio
-import imutils
-import os
-import mahotas as mt
-p=1;
-#########################
+
+p = 1
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -112,99 +120,107 @@ class Ui_MainWindow(object):
             self.imageLbl.setAlignment(QtCore.Qt.AlignCenter) # Align the label to center
 
     def classifyFunction(self):
-        json_file = open('model.json', 'r')
-        loaded_model_json = json_file.read()
-        json_file.close()
-        loaded_model = model_from_json(loaded_model_json)
-        # load weights into new model
-        loaded_model.load_weights("model.h5")
-        #loaded_model.load_weights("ResNet50-ft-10.model")
-        print("Loaded model from disk");
-        label=["Covid","Normal"]
-        path2=self.file
-        print(path2)
-        ########################
-        from tensorflow.keras.preprocessing import image
-        test_image = image.load_img(path2, target_size = (128, 128))        
-        test_image = image.img_to_array(test_image)
-        test_image = np.expand_dims(test_image, axis = 0)
-        result = loaded_model.predict(test_image)
-        print(result)
-        fresult=np.max(result)
-        label2=label[result.argmax()]
-        print(label2)
-        self.textEdit.setText(label2)
+        try:
+            import tensorflow as tf
+            
+            # Load the model with .keras extension
+            loaded_model = tf.keras.models.load_model('complete_model.keras')
+            
+            label = ["Covid", "Normal"]
+            path2 = self.file
+            print(path2)
+            
+            # Process the image
+            test_image = tf.keras.preprocessing.image.load_img(path2, target_size=(128, 128))
+            test_image = tf.keras.preprocessing.image.img_to_array(test_image)
+            test_image = np.expand_dims(test_image, axis=0)
+            
+            # Normalize the image
+            test_image = test_image / 255.0
+            
+            # Make prediction
+            result = loaded_model.predict(test_image)
+            print(result)
+            label2 = label[result.argmax()]
+            print(label2)
+            self.textEdit.setText(label2)
+            
+        except Exception as e:
+            print(f"Error loading/predicting with model: {str(e)}")
+            self.textEdit.setText(f"Error: {str(e)}")
 
     def trainingFunction(self):
-        self.textEdit.setText("Training under process...")
-        #basic cnn
-        model = Sequential()
-        model.add(Conv2D(32, kernel_size = (3, 3), activation='relu', input_shape=(128,128, 3)))
-        model.add(MaxPooling2D(pool_size=(2,2)))
-        model.add(BatchNormalization())
-        model.add(Conv2D(64, kernel_size=(3,3), activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2,2)))
-        model.add(BatchNormalization())
-        model.add(Conv2D(64, kernel_size=(3,3), activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2,2)))
-        model.add(BatchNormalization())
-        model.add(Conv2D(96, kernel_size=(3,3), activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2,2)))
-        model.add(BatchNormalization())
-        model.add(Conv2D(32, kernel_size=(3,3), activation='relu'))
-        model.add(MaxPooling2D(pool_size=(2,2)))
-        model.add(BatchNormalization())
-        model.add(Dropout(0.2))
-        model.add(Flatten())
-        model.add(Dense(128, activation='relu'))
-        model.add(Dropout(0.3))
-        model.add(Dense(2, activation = 'softmax'))
+        try:
+            self.textEdit.setText("Training under process...")
+            import tensorflow as tf
+            
+            # Create the model
+            model = tf.keras.Sequential([
+                tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation='relu', input_shape=(128, 128, 3)),
+                tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.Conv2D(64, kernel_size=(3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.Conv2D(96, kernel_size=(3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.Conv2D(32, kernel_size=(3, 3), activation='relu'),
+                tf.keras.layers.MaxPooling2D(pool_size=(2, 2)),
+                tf.keras.layers.BatchNormalization(),
+                tf.keras.layers.Dropout(0.2),
+                tf.keras.layers.Flatten(),
+                tf.keras.layers.Dense(128, activation='relu'),
+                tf.keras.layers.Dropout(0.3),
+                tf.keras.layers.Dense(2, activation='softmax')
+            ])
 
-        model.compile(optimizer = 'adam', loss = 'categorical_crossentropy', metrics = ['accuracy'])
+            model.compile(optimizer='adam',
+                         loss='categorical_crossentropy',
+                         metrics=['accuracy'])
 
+            train_datagen = tf.keras.preprocessing.image.ImageDataGenerator(
+                rescale=1./255,
+                shear_range=0.2,
+                zoom_range=0.2,
+                horizontal_flip=True)
 
+            test_datagen = tf.keras.preprocessing.image.ImageDataGenerator(rescale=1./255)
 
-        train_datagen = ImageDataGenerator(rescale = None,
-                                           shear_range = 0.2,
-                                           zoom_range = 0.2,
-                                           horizontal_flip = True)
+            training_path = './TrainingDataset'
+            testing_path = './TestingDataset'
 
-        test_datagen = ImageDataGenerator(rescale = 1./255)
+            training_set = train_datagen.flow_from_directory(
+                training_path,
+                target_size=(128, 128),
+                batch_size=8,
+                class_mode='categorical')
+            
+            test_set = test_datagen.flow_from_directory(
+                testing_path,
+                target_size=(128, 128),
+                batch_size=8,
+                class_mode='categorical')
 
-        training_set = train_datagen.flow_from_directory('G:\__Technology___Beyond_Dreams\Deep_Learning\Codes\Final\Corona_virus_detection\TrainingDataset',
-                                                         target_size = (128, 128),
-                                                         batch_size = 8,
-                                                         class_mode = 'categorical')
-        #print(test_datagen);
-        labels = (training_set.class_indices)
-        print(labels)
-        
+            model.fit(
+                training_set,
+                steps_per_epoch=100,
+                epochs=10,
+                validation_data=test_set,
+                validation_steps=125)
 
-        test_set = test_datagen.flow_from_directory('G:\__Technology___Beyond_Dreams\Deep_Learning\Codes\Final\Corona_virus_detection\TestingDataset',
-                                                    target_size = (128, 128),
-                                                    batch_size = 8,
-                                                    class_mode = 'categorical')
-
-        labels2 = (test_set.class_indices)
-        print(labels2)
-        #self.textEdit.setText(labels2)
-
-        model.fit_generator(training_set,
-                                 steps_per_epoch = 100,
-                                 epochs = 10,
-                                 validation_data = test_set,
-                                 validation_steps = 125)
-
-
-        # Part 3 - Making new predictions
-
-        model_json=model.to_json()
-        with open("model.json", "w") as json_file:
-            json_file.write(model_json)
-        # serialize weights to HDF5
-            model.save_weights("model.h5")
+            # Save the model with .keras extension
+            model.save('complete_model.keras')
+            
             print("Saved model to disk")
-            self.textEdit.setText("Saved model to disk")
+            self.textEdit.setText("Training completed and model saved")
+            
+        except Exception as e:
+            print(f"Error during training: {str(e)}")
+            self.textEdit.setText(f"Training error: {str(e)}")
         
         
         
